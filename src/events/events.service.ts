@@ -150,7 +150,11 @@ export class EventsService {
       );
       mergedEvents.push(mergedEvent);
 
-      // Delete original events
+      // Delete originals from the Event table.
+      // This implicitly updates both entities:
+      //   - Event table: original rows removed, merged row already saved above
+      //   - User.events: junction rows for deleted events become unreachable;
+      //     new junction rows for the merged event were created when saving invitees
       const originalIds = group.map((e) => e.id);
       await this.eventRepo.delete(originalIds);
     }

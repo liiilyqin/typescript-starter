@@ -91,9 +91,20 @@ describe('Users (e2e)', () => {
       expect(merged.startTime).toBe('2024-06-01T14:00:00.000Z');
       expect(merged.endTime).toBe('2024-06-01T16:00:00.000Z');
 
-      // Originals should be gone
+      // Originals should be gone from the Event table
       await request(app.getHttpServer()).get(`/events/${e1Res.body.id}`).expect(404);
       await request(app.getHttpServer()).get(`/events/${e2Res.body.id}`).expect(404);
+
+      // Merged event should be persisted and retrievable (verifies Event table updated)
+      const mergedId = merged.id as string;
+      const mergedEventRes = await request(app.getHttpServer())
+        .get(`/events/${mergedId}`)
+        .expect(200);
+
+      // User should be an invitee of the merged event — this confirms the User entity
+      // is also updated: old events are removed, new merged event is linked to the user
+      const inviteeIds = (mergedEventRes.body.invitees as Array<{ id: string }>).map((u) => u.id);
+      expect(inviteeIds).toContain(userId);
     });
 
     it('leaves non-overlapping events untouched', async () => {

@@ -1,98 +1,263 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Events & Users Management API
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+A NestJS backend service for managing events and users. Supports creating, retrieving, and deleting events, and merging overlapping events for a specific user.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+---
 
-## Description
+## Tech Stack
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+| Technology | Purpose |
+|---|---|
+| **NestJS** | Backend framework — enforces modular architecture (modules, controllers, services) |
+| **TypeScript** | Static typing for safer, more maintainable code |
+| **TypeORM** | ORM for database access — handles entity relationships without raw SQL |
+| **SQLite (better-sqlite3)** | File-based database — zero configuration, no server required |
+| **Jest + Supertest** | Unit and integration testing |
 
-## Project setup
+**Why SQLite instead of PostgreSQL?**
+SQLite stores data in a single file (`db.sqlite`). Reviewers can clone and run the project immediately with no database server to install or configure. For this assignment, reproducibility matters more than production-scale concerns.
 
-```bash
-$ npm install
+---
+
+## Project Structure
+
+```
+src/
+  events/
+    dto/                    # Request validation (CreateEventDto)
+    entities/               # TypeORM entity (Event)
+    events.controller.ts    # HTTP route handlers
+    events.service.ts       # Business logic + merge algorithm
+    events.module.ts        # Module wiring
+
+  users/
+    dto/                    # Request validation (CreateUserDto)
+    entities/               # TypeORM entity (User)
+    users.controller.ts     # HTTP route handlers
+    users.service.ts        # User CRUD logic
+    users.module.ts         # Module wiring
+
+  app.module.ts             # Root module — database config, imports
+  main.ts                   # Entry point — bootstraps app, global validation
+
+test/
+  helpers/
+    test-app.factory.ts     # Shared in-memory test app for E2E tests
+  events.e2e-spec.ts        # Events API integration tests
+  users.e2e-spec.ts         # Users + merge-all integration tests
 ```
 
-## Compile and run the project
+---
 
-```bash
-# development
-$ npm run start
+## System Architecture
 
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+```
+HTTP Request
+     ↓
+Controller      — validates input, delegates to service, returns response
+     ↓
+Service         — business logic (merge algorithm, DB operations)
+     ↓
+TypeORM Repo    — abstracts database access (save / find / delete)
+     ↓
+SQLite Database — persists Event and User entities via a junction table
 ```
 
-## Run tests
+The Event–User relationship is **Many-to-Many**: one event can have multiple invitees, one user can attend multiple events. TypeORM manages this through an auto-generated junction table (`event_invitees_user`). The `Event` entity owns the relationship (`@JoinTable()`), so saving an event with an `invitees` array automatically keeps the junction table in sync.
+
+---
+
+## Getting Started
+
+### 1. Install dependencies
 
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+npm install
 ```
 
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+### 2. Start the server
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+npm run start
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+The server runs at `http://localhost:3000`. The SQLite file (`db.sqlite`) is created automatically on first run — no manual setup required.
 
-## Resources
+---
 
-Check out a few resources that may come in handy when working with NestJS:
+## API Usage
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+### Create a user
 
-## Support
+```bash
+curl -X POST http://localhost:3000/users \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Alice"}'
+```
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+```json
+{ "id": "uuid-1", "name": "Alice" }
+```
 
-## Stay in touch
+### Create an event
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+```bash
+curl -X POST http://localhost:3000/events \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Team sync",
+    "description": "Weekly standup",
+    "startTime": "2024-06-01T14:00:00.000Z",
+    "endTime": "2024-06-01T15:00:00.000Z",
+    "inviteeIds": ["uuid-1"]
+  }'
+```
 
-## License
+> `status` defaults to `TODO` if omitted. `description` and `inviteeIds` are optional.
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+### Get an event by ID
+
+```bash
+curl http://localhost:3000/events/<event-id>
+```
+
+### Delete an event by ID
+
+```bash
+curl -X DELETE http://localhost:3000/events/<event-id>
+```
+
+Returns `204 No Content` on success.
+
+### Merge overlapping events for a user
+
+```bash
+curl -X POST http://localhost:3000/users/<user-id>/merge-all
+```
+
+Returns the list of newly created merged events. Returns `[]` if no events overlap.
+
+---
+
+## Running Tests
+
+### Unit tests (mock database)
+
+```bash
+npm test
+```
+
+Tests `EventsService` and `UsersService` in isolation using jest mocks — no database required. Fast and focused on business logic.
+
+```
+Tests: 17 passed
+```
+
+### Integration tests (real in-memory database)
+
+```bash
+npm run test:e2e
+```
+
+Sends real HTTP requests against a full NestJS app backed by an in-memory SQLite database. Each test run starts with a clean schema (`dropSchema: true`).
+
+```
+Tests: 14 passed
+```
+
+---
+
+## API Overview
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/users` | Create a user |
+| `POST` | `/events` | Create an event |
+| `GET` | `/events/:id` | Get an event by ID |
+| `DELETE` | `/events/:id` | Delete an event by ID |
+| `POST` | `/users/:userId/merge-all` | Merge all overlapping events for a user |
+
+---
+
+## Implementation Approach
+
+### Module structure
+
+Each domain (events, users) is a self-contained NestJS module with its own controller, service, and repository. `EventsModule` exports `EventsService` so `UsersController` can call `mergeEventsForUser()` directly — the merge operation lives in `EventsService` because it directly creates and deletes Event records, keeping all Event repository access in one place.
+
+### Request validation
+
+A global `ValidationPipe` (configured in `main.ts`) automatically validates all incoming request bodies against the DTO class decorators. Invalid or unknown fields return a `400` response before reaching the service layer.
+
+---
+
+## Merge Algorithm
+
+`POST /users/:userId/merge-all` runs the following steps:
+
+1. Load the user and their events. Return `[]` if the user has no events.
+2. Fetch full event records (with `invitees` loaded) for all event IDs.
+3. **Sort events by `startTime` ascending.**
+4. **Interval merge pass** — iterate through sorted events, tracking the furthest `endTime` reached in the current group:
+   - `next.startTime < groupMaxEndTime` → overlap detected, extend the group.
+   - Otherwise → close the current group, start a new one.
+5. Skip groups with only one event (nothing to merge).
+6. For each merge group: build the merged event fields, save the new event, delete the originals.
+7. Return the list of newly created merged events.
+
+### Merged event attribute rules
+
+| Field | Rule |
+|---|---|
+| `title` | Joined with ` + ` — e.g. `"E1 + E2"` |
+| `description` | Non-null values joined with `\n`; `null` if all are null |
+| `startTime` | Minimum across the group |
+| `endTime` | Maximum across the group |
+| `status` | Highest priority: `TODO` > `IN_PROGRESS` > `COMPLETED` |
+| `invitees` | Union of all invitees, deduplicated by user ID |
+
+### Database update after merge
+
+Both entities are updated atomically within the loop:
+- **Event table**: the merged event is inserted, then the original events are deleted.
+- **User.events**: handled implicitly via the junction table — deleting original events removes their junction rows; saving the merged event with `invitees` creates new ones. The net result is that each invitee's event list now contains the merged event instead of the originals.
+
+---
+
+## Edge Cases
+
+| Scenario | Behaviour |
+|---|---|
+| User not found | `404 Not Found` |
+| User has no events | Returns `[]`, no DB writes |
+| No overlapping events | Returns `[]`, all events untouched |
+| Two overlapping events | Merged into one; both originals deleted |
+| Chained overlaps (A∩B, B∩C) | All three grouped in a single pass — `maxEndTime` tracks the furthest end in the group, not just the previous event |
+| Mixed status in a merge group | `TODO` wins — prevents completed status from hiding pending work |
+| Some events have no description | Null values filtered out before joining; no blank lines |
+| Duplicate invitees across events | Deduplicated by user ID using a `Map` |
+
+---
+
+## Key Design Decisions
+
+**SQLite over PostgreSQL** — eliminates environment setup for reviewers. `synchronize: true` auto-creates tables on startup, removing the need for migration files in development.
+
+**`TODO` as highest merge priority** — a merged event inheriting `COMPLETED` from one sub-event while another was still `TODO` would misrepresent the actual state. Surfacing the highest-urgency status is safer and more actionable.
+
+**Merge is destructive** — original events are deleted and replaced with the merged event. This keeps the Event table clean and avoids ambiguous duplicate records with overlapping time windows.
+
+**`EventsService` owns the merge logic, not `UsersService`** — the operation directly creates and deletes Event records. Placing it in `EventsService` keeps all Event repository access in one place and avoids cross-service coupling.
+
+**Unit tests + E2E tests** — unit tests use jest mocks (fast, cover every branch and edge case); E2E tests use in-memory SQLite (verify HTTP layer, module wiring, real DB behavior). Together they satisfy the requirement to test with both mock and real database.
+
+---
+
+## Future Improvements
+
+- **`GET /users/:id`** — no endpoint currently exists to retrieve a user's event list directly.
+- **Pagination** — `mergeEventsForUser` loads all events into memory; users with many events would benefit from batched processing.
+- **Richer merge response** — returning a summary (merged count, untouched count, deleted IDs) alongside the new events would be more informative.
+- **Migration files** — replace `synchronize: true` with TypeORM migrations before any production deployment.
+- **`PATCH /events/:id`** — a natural addition to complete the CRUD API.
+- **PostgreSQL support** — the TypeORM config can be swapped to PostgreSQL with a single config change; SQLite is used here for reviewer convenience only.
