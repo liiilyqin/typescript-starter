@@ -5,7 +5,8 @@ import { Event, EventStatus } from './entities/event.entity.js';
 import { User } from '../users/entities/user.entity.js';
 import { CreateEventDto } from './dto/create-event.dto.js';
 
-// Priority map: higher number = higher priority
+// Priority map: higher number = higher priority (TODO > IN_PROGRESS > COMPLETED)
+// Rationale: a merged event should surface any still-pending work first
 const STATUS_PRIORITY: Record<EventStatus, number> = {
   [EventStatus.TODO]: 3,
   [EventStatus.IN_PROGRESS]: 2,
