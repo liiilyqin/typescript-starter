@@ -4,6 +4,8 @@ A small NestJS backend service for managing events and users.
 It provides APIs to create, retrieve, and delete events, and to merge overlapping events for a specific user.
 
 ---
+## Demo Recording
+https://www.loom.com/share/5c469da1b63d4cc68e741aa5bbbd036e
 
 ## Tech Stack
 
