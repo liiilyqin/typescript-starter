@@ -1,6 +1,7 @@
 # Events & Users Management API
 
-A NestJS backend service for managing events and users. Supports creating, retrieving, and deleting events, and merging overlapping events for a specific user.
+A small NestJS backend service for managing events and users.  
+It provides APIs to create, retrieve, and delete events, and to merge overlapping events for a specific user.
 
 ---
 
@@ -24,19 +25,28 @@ SQLite stores data in a single file (`db.sqlite`). Reviewers can clone and run t
 ```
 src/
   events/
-    dto/                    # Request validation (CreateEventDto)
-    entities/               # TypeORM entity (Event)
+    dto/
+      create-event.dto.ts   # Request validation (CreateEventDto)
+    entities/
+      event.entity.ts       # TypeORM entity (Event)
     events.controller.ts    # HTTP route handlers
-    events.service.ts       # Business logic + merge algorithm
     events.module.ts        # Module wiring
+    events.service.ts       # Business logic + merge algorithm
+    events.service.spec.ts  # Unit tests for EventsService
 
   users/
-    dto/                    # Request validation (CreateUserDto)
-    entities/               # TypeORM entity (User)
+    dto/                    
+      create-user.dto.ts    # Request validation (CreateUserDto)
+    entities/
+      user.entity.ts        # TypeORM entity (User)
     users.controller.ts     # HTTP route handlers
     users.service.ts        # User CRUD logic
     users.module.ts         # Module wiring
+    users.service.spec.ts   # Unit tests for UsersService
 
+  app.controller.spec.ts    # Starter example unit test
+  app.controller.ts         # Starter example controller
+  app.service.ts            # Starter example service
   app.module.ts             # Root module — database config, imports
   main.ts                   # Entry point — bootstraps app, global validation
 
@@ -45,6 +55,11 @@ test/
     test-app.factory.ts     # Shared in-memory test app for E2E tests
   events.e2e-spec.ts        # Events API integration tests
   users.e2e-spec.ts         # Users + merge-all integration tests
+  app.e2e-spec.ts           # Base NestJS E2E example
+  jest-e2e.json             # Jest configuration for E2E tests
+
+db.sqlite                   # SQLite database file (auto-generated)
+  
 ```
 
 ---
@@ -63,7 +78,8 @@ TypeORM Repo    — abstracts database access (save / find / delete)
 SQLite Database — persists Event and User entities via a junction table
 ```
 
-The Event–User relationship is **Many-to-Many**: one event can have multiple invitees, one user can attend multiple events. TypeORM manages this through an auto-generated junction table (`event_invitees_user`). The `Event` entity owns the relationship (`@JoinTable()`), so saving an event with an `invitees` array automatically keeps the junction table in sync.
+The Event–User relationship is **many-to-many**: one event can have multiple invitees, one user can attend multiple events. 
+TypeORM manages this through an auto-generated junction table (`event_invitees_user`). The `Event` entity owns the relationship (`@JoinTable()`), so saving an event with an `invitees` array automatically keeps the junction table in sync.
 
 ---
 
@@ -115,13 +131,13 @@ curl -X POST http://localhost:3000/events \
 
 > `status` defaults to `TODO` if omitted. `description` and `inviteeIds` are optional.
 
-### Get an event by ID
+### Retrieve a event by its id
 
 ```bash
 curl http://localhost:3000/events/<event-id>
 ```
 
-### Delete an event by ID
+### Delete a event by its id
 
 ```bash
 curl -X DELETE http://localhost:3000/events/<event-id>
@@ -150,7 +166,7 @@ npm test
 Tests `EventsService` and `UsersService` in isolation using jest mocks — no database required. Fast and focused on business logic.
 
 ```
-Tests: 17 passed
+Tests: 18 passed
 ```
 
 ### Integration tests (real in-memory database)
@@ -198,7 +214,7 @@ A global `ValidationPipe` (configured in `main.ts`) automatically validates all 
 1. Load the user and their events. Return `[]` if the user has no events.
 2. Fetch full event records (with `invitees` loaded) for all event IDs.
 3. **Sort events by `startTime` ascending.**
-4. **Interval merge pass** — iterate through sorted events, tracking the furthest `endTime` reached in the current group:
+4. **Interval merge pass** — iterate through sorted events, tracking the latest `endTime` within the current group:
    - `next.startTime < groupMaxEndTime` → overlap detected, extend the group.
    - Otherwise → close the current group, start a new one.
 5. Skip groups with only one event (nothing to merge).
@@ -232,7 +248,7 @@ Both entities are updated atomically within the loop:
 | User has no events | Returns `[]`, no DB writes |
 | No overlapping events | Returns `[]`, all events untouched |
 | Two overlapping events | Merged into one; both originals deleted |
-| Chained overlaps (A∩B, B∩C) | All three grouped in a single pass — `maxEndTime` tracks the furthest end in the group, not just the previous event |
+| Chained overlaps (A∩B, B∩C) | All three are merged in a single pass — `maxEndTime` tracks the furthest end in the group, not just the previous event |
 | Mixed status in a merge group | `TODO` wins — prevents completed status from hiding pending work |
 | Some events have no description | Null values filtered out before joining; no blank lines |
 | Duplicate invitees across events | Deduplicated by user ID using a `Map` |
@@ -245,7 +261,7 @@ Both entities are updated atomically within the loop:
 
 **`TODO` as highest merge priority** — a merged event inheriting `COMPLETED` from one sub-event while another was still `TODO` would misrepresent the actual state. Surfacing the highest-urgency status is safer and more actionable.
 
-**Merge is destructive** — original events are deleted and replaced with the merged event. This keeps the Event table clean and avoids ambiguous duplicate records with overlapping time windows.
+**Merge is destructive** — original events are deleted and replaced with the merged event. This avoids keeping multiple overlapping events that represent the same merged time window.
 
 **`EventsService` owns the merge logic, not `UsersService`** — the operation directly creates and deletes Event records. Placing it in `EventsService` keeps all Event repository access in one place and avoids cross-service coupling.
 
@@ -259,5 +275,5 @@ Both entities are updated atomically within the loop:
 - **Pagination** — `mergeEventsForUser` loads all events into memory; users with many events would benefit from batched processing.
 - **Richer merge response** — returning a summary (merged count, untouched count, deleted IDs) alongside the new events would be more informative.
 - **Migration files** — replace `synchronize: true` with TypeORM migrations before any production deployment.
-- **`PATCH /events/:id`** — a natural addition to complete the CRUD API.
+- **`PATCH /events/:id`** — This would complete the basic CRUD functionality for events.
 - **PostgreSQL support** — the TypeORM config can be swapped to PostgreSQL with a single config change; SQLite is used here for reviewer convenience only.
